@@ -329,7 +329,7 @@ function renderCard(a) {
       ${a.hours.length ? `<div class="strip">${strip}</div>
       <div class="meta">Hourly: score, wind/gust (kn), direction the wind blows to${state.profile.weight ? ', kite size' : ''}.</div>` : ''}
       <div class="meta">Safe wind from: ${spot.safe.join(', ')}${spot.months ? ' Â· open Octâ€“Apr' : ''}</div>
-      <div class="meta">${esc(spot.note)} <a href="${esc(spot.url)}" target="_blank" rel="noopener">Spot info</a> · <a href="${esc(spot.windguru)}" target="_blank" rel="noopener">Windguru</a></div>
+      <div class="meta">${esc(spot.note)} <a href="${esc(spot.url)}" target="_blank" rel="noopener">Spot info</a> · <a href="${esc(spot.windguru)}" target="_blank" rel="noopener">Windguru</a> · <a href="https://www.windguru.cz/map/?lat=${spot.launch.lat}&lon=${spot.launch.lon}&zoom=12" target="_blank" rel="noopener">Map</a></div>
     </div>
   </section>`;
 }
