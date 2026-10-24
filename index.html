@@ -314,9 +314,7 @@ function renderCard(a) {
     const inWin = win && i >= win.start && i <= win.end;
     return `<div class="cell${inWin ? ' in' : ''}"><div>${x.hour}</div>` +
       `<div class="sc ${band(d.score)}">${d.score.toFixed(0)}</div>` +
-      `<div>${kn(d.speed)}/${kn(d.gust)}</div>` +
-      `<div>${d.speed > 0 ? '+' + Math.round((d.gust - d.speed) / d.speed * 100) + '%' : '–'}</div>` +
-      `<div>${arrow(d.dir)}</div><div>${compass(d.dir)}</div>` +
+      `<div>${kn(d.speed)}/${kn(d.gust)}</div><div>${arrow(d.dir)}</div>` +
       `${k ? `<div class="kite">${k.toFixed(1)}m</div>` : ''}</div>`;
   }).join('');
 
@@ -329,7 +327,7 @@ function renderCard(a) {
     </button>
     <div class="detail">
       ${a.hours.length ? `<div class="strip">${strip}</div>
-      <div class="meta">Hourly: score, wind/gust (kn), gustiness (gust over mean wind), direction (arrow = where the wind blows to, letters = where it comes from)${state.profile.weight ? ', kite size' : ''}.</div>` : ''}
+      <div class="meta">Hourly: score, wind/gust (kn), direction the wind blows to${state.profile.weight ? ', kite size' : ''}.</div>` : ''}
       <div class="meta">Safe wind from: ${spot.safe.join(', ')}${spot.months ? ' · open Oct–Apr' : ''}</div>
       <div class="meta">${esc(spot.note)} <a href="${esc(spot.url)}" target="_blank" rel="noopener">Spot info</a> · <a href="${esc(spot.windguru)}" target="_blank" rel="noopener">Windguru</a> · <a href="https://www.windy.com/${spot.launch.lat}/${spot.launch.lon}?${spot.launch.lat},${spot.launch.lon},12" target="_blank" rel="noopener">Map</a></div>
     </div>
