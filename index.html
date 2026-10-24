@@ -131,10 +131,16 @@ footer a { color: var(--accent); }
   <div class="tabs" role="tablist" id="tabs"></div>
 
   <details class="profile" id="profile">
-    <summary>Kite size (weight &amp; skill)</summary>
+    <summary>Settings (kite size &amp; ideal wind)</summary>
     <div class="profile-body">
       <label>Weight (kg)
         <input id="weight" type="number" inputmode="numeric" min="30" max="160" placeholder="e.g. 80">
+      </label>
+      <label>Ideal wind from (kn)
+        <input id="idealLo" type="number" inputmode="numeric" min="0" max="60" placeholder="16">
+      </label>
+      <label>Ideal wind to (kn)
+        <input id="idealHi" type="number" inputmode="numeric" min="0" max="60" placeholder="25">
       </label>
       <label>Skill
         <select id="skill">
@@ -162,7 +168,7 @@ const MODELS = ['knmi_harmonie_arome_netherlands', 'icon_d2'];
 const TZ = 'Europe/Amsterdam';
 const KEY = 'kite-profile-v1';
 
-const state = { spots: [], raw: null, day: 0, profile: { weight: '', skill: 'intermediate' }, open: new Set() };
+const state = { spots: [], raw: null, day: 0, profile: { weight: '', skill: 'intermediate', idealLo: 16, idealHi: 25 }, open: new Set() };
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -171,6 +177,8 @@ function loadProfile() {
   try { Object.assign(state.profile, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   $('weight').value = state.profile.weight;
   $('skill').value = state.profile.skill;
+  $('idealLo').value = state.profile.idealLo;
+  $('idealHi').value = state.profile.idealHi;
 }
 function saveProfile() {
   try { localStorage.setItem(KEY, JSON.stringify(state.profile)); } catch (e) {}
@@ -218,8 +226,17 @@ function buildSpot(spot, r) {
     const mid = t.slice(0, 14) + '30';
     const s = sun[date];
     const daylight = !!s && mid >= s.rise && mid <= s.set;
-    return { t, date, hour: t.slice(11, 13), daylight, past: t < now, data: Scoring.combineHour(models, spot, month) };
+    return { t, date, hour: t.slice(11, 13), daylight, past: t < now, data: Scoring.combineHour(models, spot, month, ideal()) };
   });
+}
+
+// Wind range scoring 100%; falls back to defaults when the inputs are empty/invalid.
+function ideal() {
+  const d = Scoring.DEFAULT_IDEAL;
+  let lo = parseFloat(state.profile.idealLo), hi = parseFloat(state.profile.idealHi);
+  if (!isFinite(lo)) lo = d.lo;
+  if (!isFinite(hi)) hi = d.hi;
+  return lo <= hi ? { lo, hi } : { lo: hi, hi: lo };
 }
 
 function dayHours(allHours, date) {
@@ -298,7 +315,7 @@ function renderCard(a) {
     return `<div class="cell${inWin ? ' in' : ''}"><div>${x.hour}</div>` +
       `<div class="sc ${band(d.score)}">${d.score.toFixed(0)}</div>` +
       `<div>${kn(d.speed)}/${kn(d.gust)}</div><div>${arrow(d.dir)}</div>` +
-      `${k ? `<div class="kite">${k}m</div>` : ''}</div>`;
+      `${k ? `<div class="kite">${k.toFixed(1)}m</div>` : ''}</div>`;
   }).join('');
 
   return `<section class="card${open ? ' open' : ''}" data-id="${esc(spot.id)}">
@@ -312,7 +329,7 @@ function renderCard(a) {
       ${a.hours.length ? `<div class="strip">${strip}</div>
       <div class="meta">Hourly: score, wind/gust (kn), direction the wind blows to${state.profile.weight ? ', kite size' : ''}.</div>` : ''}
       <div class="meta">Safe wind from: ${spot.safe.join(', ')}${spot.months ? ' · open Oct–Apr' : ''}</div>
-      <div class="meta">${esc(spot.note)} <a href="${esc(spot.url)}" target="_blank" rel="noopener">Spot info</a></div>
+      <div class="meta">${esc(spot.note)} <a href="${esc(spot.url)}" target="_blank" rel="noopener">Spot info</a> � <a href="${esc(spot.windguru)}" target="_blank" rel="noopener">Windguru</a></div>
     </div>
   </section>`;
 }
@@ -356,6 +373,9 @@ document.addEventListener('click', e => {
 });
 $('refresh').addEventListener('click', load);
 $('weight').addEventListener('input', e => { state.profile.weight = e.target.value; saveProfile(); render(); });
+for (const id of ['idealLo', 'idealHi']) {
+  $(id).addEventListener('input', e => { state.profile[id] = e.target.value; saveProfile(); render(); });
+}
 $('skill').addEventListener('change', e => { state.profile.skill = e.target.value; saveProfile(); render(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && state.raw) load(); });
 

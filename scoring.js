@@ -2,7 +2,8 @@
 // Loaded by index.html as a classic script and by test_scoring.js under Node.
 (function (root) {
   // ---- Tunable constants --------------------------------------------------
-  const SPEED_KN = { min: 10, ideal_lo: 16, ideal_hi: 25, max: 35 };
+  const DEFAULT_IDEAL = { lo: 16, hi: 25 };           // wind range (kn) that scores 100%
+  const RAMP_UP_KN = 6, RAMP_DOWN_KN = 10;           // fade to 0 below lo / above hi
   const GUST_SPREAD_KN = { steady: 5, rough: 15 };   // gust - mean
   const DIR_SECTOR_HALF_WIDTH = 22.5;                // each compass sector is +-22.5 deg
   const DIR_FADE_DEG = 30;                           // fade to 0 over 30 deg outside a sector
@@ -15,12 +16,11 @@
 
   const SECTOR_DEG = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
 
-  function speedScore(kn) {
-    const s = SPEED_KN;
-    if (kn <= s.min || kn >= s.max) return 0;
-    if (kn < s.ideal_lo) return (kn - s.min) / (s.ideal_lo - s.min);
-    if (kn <= s.ideal_hi) return 1;
-    return (s.max - kn) / (s.max - s.ideal_hi);
+  function speedScore(kn, ideal) {
+    const lo = ideal ? ideal.lo : DEFAULT_IDEAL.lo, hi = ideal ? ideal.hi : DEFAULT_IDEAL.hi;
+    if (kn >= lo && kn <= hi) return 1;
+    if (kn < lo) return Math.max(0, 1 - (lo - kn) / RAMP_UP_KN);
+    return Math.max(0, 1 - (kn - hi) / RAMP_DOWN_KN);
   }
 
   function gustScore(meanKn, gustKn) {
@@ -51,9 +51,9 @@
   }
 
   // 0-10 rating for one model at one hour.
-  function hourScore(m, spot, month) {
+  function hourScore(m, spot, month, ideal) {
     if (spot.months && !spot.months.includes(month)) return 0;
-    return 10 * speedScore(m.speed) * dirScore(m.dir, spot.safe) * gustScore(m.speed, m.gust);
+    return 10 * speedScore(m.speed, ideal) * dirScore(m.dir, spot.safe) * gustScore(m.speed, m.gust);
   }
 
   function circularMean(degs) {
@@ -63,9 +63,9 @@
   }
 
   // models: array of {speed, dir, gust} (nulls already removed). Returns null if empty.
-  function combineHour(models, spot, month) {
+  function combineHour(models, spot, month, ideal) {
     if (!models.length) return null;
-    const scores = models.map(m => hourScore(m, spot, month));
+    const scores = models.map(m => hourScore(m, spot, month, ideal));
     const avg = a => a.reduce((s, v) => s + v, 0) / a.length;
     return {
       score: avg(scores),
@@ -104,12 +104,12 @@
     if (!weightKg || weightKg <= 0) return null;
     const w = effectiveWind(h);
     if (w < 5) return null;
-    return nearestKite(weightKg * KITE_K / w * (SKILL_FACTOR[skill] || 1));
+    return Math.round(weightKg * KITE_K / w * (SKILL_FACTOR[skill] || 1) * 10) / 10;
   }
 
   const api = {
     speedScore, gustScore, dirScore, hourScore, combineHour, bestWindow,
-    effectiveWind, kiteSize, nearestKite, circularMean, SECTOR_DEG,
+    effectiveWind, kiteSize, DEFAULT_IDEAL, nearestKite, circularMean, SECTOR_DEG,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Scoring = api;

@@ -46,10 +46,15 @@ assert.deepStrictEqual([w.start, w.end], [2, 4]);                       // floor
 near(w.rating, 8);
 
 // kite size: 80 kg, 20 kn mean / 20 kn gust -> 8.8 -> 9 m
-assert.strictEqual(S.kiteSize({ speed: 20, gust: 20 }, 80, 'intermediate'), 9);
-assert.strictEqual(S.kiteSize({ speed: 20, gust: 20 }, 80, 'beginner'), 7);   // 7.48
-assert.strictEqual(S.kiteSize({ speed: 20, gust: 20 }, 80, 'advanced'), 10);  // 9.68
-assert.strictEqual(S.kiteSize({ speed: 20, gust: 30 }, 80, 'intermediate'), 7); // eff 25 -> 7.04
+assert.strictEqual(S.kiteSize({ speed: 20, gust: 20 }, 80, 'intermediate'), 8.8);
+assert.strictEqual(S.kiteSize({ speed: 20, gust: 20 }, 80, 'beginner'), 7.5);
+assert.strictEqual(S.kiteSize({ speed: 20, gust: 20 }, 80, 'advanced'), 9.7);
+assert.strictEqual(S.kiteSize({ speed: 20, gust: 30 }, 80, 'intermediate'), 7);
 assert.strictEqual(S.kiteSize({ speed: 20, gust: 20 }, 0, 'intermediate'), null);
 
 console.log('all scoring tests passed');
+
+// custom ideal range
+near(S.speedScore(30, { lo: 28, hi: 35 }), 1);
+near(S.speedScore(25, { lo: 28, hi: 35 }), 0.5);
+near(S.speedScore(20, { lo: 28, hi: 35 }), 0);
