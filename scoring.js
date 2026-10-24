@@ -72,6 +72,9 @@
       speed: avg(models.map(m => m.speed)),
       gust: avg(models.map(m => m.gust)),
       dir: circularMean(models.map(m => m.dir)),
+      speedPct: 100 * avg(models.map(m => speedScore(m.speed, ideal))),
+      gustPct: 100 * avg(models.map(m => gustScore(m.speed, m.gust))),
+      dirPct: 100 * avg(models.map(m => dirScore(m.dir, spot.safe))),
       modelCount: models.length,
       disagree: models.length > 1 && Math.max(...scores) - Math.min(...scores) >= DISAGREE_SCORE_DIFF,
     };
