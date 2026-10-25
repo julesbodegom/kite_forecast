@@ -4,7 +4,7 @@
   // ---- Tunable constants --------------------------------------------------
   const DEFAULT_IDEAL = { lo: 16, hi: 25 };           // wind range (kn) that scores 100%
   const RAMP_UP_KN = 6, RAMP_DOWN_KN = 10;           // fade to 0 below lo / above hi
-  const GUST_SPREAD_KN = { steady: 5, rough: 15 };   // gust - mean
+  const GUST_SPREAD_KN = { steady: 5, rough: 30 };   // gust - mean
   const DIR_SECTOR_HALF_WIDTH = 22.5;                // each compass sector is +-22.5 deg
   const DIR_FADE_DEG = 30;                           // fade to 0 over 30 deg outside a sector
   const WINDOW_MIN_SCORE = 3;                        // below this an hour is not rideable

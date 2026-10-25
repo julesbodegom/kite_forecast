@@ -9,7 +9,7 @@ near(S.speedScore(9), 0); near(S.speedScore(13), 0.5); near(S.speedScore(20), 1)
 near(S.speedScore(30), 0.5); near(S.speedScore(36), 0);
 
 // gust spread
-near(S.gustScore(20, 24), 1); near(S.gustScore(20, 30), 0.5); near(S.gustScore(20, 40), 0);
+near(S.gustScore(20, 24), 1); near(S.gustScore(20, 30), 0.8); near(S.gustScore(20, 40), 0.4); near(S.gustScore(20, 50), 0);
 
 // direction: Zandmotor-like non-contiguous set
 const safe = ['NW', 'W', 'SW', 'NE'];
