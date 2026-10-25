@@ -65,9 +65,9 @@ button { font: inherit; color: inherit; }
   min-width: 44px; min-height: 44px; border: 1px solid var(--line); background: var(--surface);
   border-radius: 10px; cursor: pointer;
 }
-.tabs { display: flex; gap: 8px; margin: 8px 0 12px; }
+.tabs { display: flex; gap: 8px; margin: 8px 0 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .tab {
-  flex: 1; min-height: 44px; border: 1px solid var(--line); background: var(--surface);
+  flex: 1 0 auto; min-width: 84px; padding: 0 12px; min-height: 44px; border: 1px solid var(--line); background: var(--surface);
   border-radius: 10px; cursor: pointer; font-weight: 600;
 }
 .tab[aria-selected="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
@@ -155,8 +155,8 @@ footer a { color: var(--accent); }
   <main id="list" aria-live="polite"></main>
 
   <footer>
-    <p><strong>Rating 0–10</strong> = wind speed × direction × gustiness, averaged over HARMONIE-AROME and ICON-D2. Only daylight hours count. The card shows the best window and its average rating. Kite size assumes a twintip and is a rough guide.</p>
-    <p>Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a> (KNMI HARMONIE-AROME, DWD ICON-D2). Spot directions from <a href="https://kitesurfvereniging.nl/alle-kitespots/">kitesurfvereniging.nl</a>. Forecast points are placed just offshore of each launch.</p>
+    <p><strong>Rating 0–10</strong> = wind speed × direction × gustiness, averaged over HARMONIE-AROME and ICON-D2 (about 2.5 days ahead); later days use ECMWF IFS alone and are less certain. Only daylight hours count. The card shows the best window and its average rating. Kite size assumes a twintip and is a rough guide.</p>
+    <p>Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a> (KNMI HARMONIE-AROME, DWD ICON-D2, ECMWF IFS). Spot directions from <a href="https://kitesurfvereniging.nl/alle-kitespots/">kitesurfvereniging.nl</a>. Forecast points are placed just offshore of each launch.</p>
   </footer>
 </div>
 
@@ -165,6 +165,10 @@ footer a { color: var(--accent); }
 <script>
 const API = 'https://api.open-meteo.com/v1/forecast';
 const MODELS = ['knmi_harmonie_arome_netherlands', 'icon_d2'];
+// Coarser global model, used only for hours the high-res models don't cover (days 3-7).
+const LONG_MODEL = 'ecmwf_ifs025';
+const ALL_MODELS = [...MODELS, LONG_MODEL];
+const DAYS = 7;
 const TZ = 'Europe/Amsterdam';
 const KEY = 'kite-profile-v1';
 
@@ -197,8 +201,8 @@ async function fetchForecast() {
   const lon = state.spots.map(s => s.forecast.lon).join(',');
   const url = `${API}?latitude=${lat}&longitude=${lon}` +
     '&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m' +
-    `&daily=sunrise,sunset&models=${MODELS.join(',')}` +
-    `&forecast_days=3&wind_speed_unit=kn&timezone=${TZ}`;
+    `&daily=sunrise,sunset&models=${ALL_MODELS.join(',')}` +
+    `&forecast_days=${DAYS}&wind_speed_unit=kn&timezone=${TZ}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Open-Meteo returned HTTP ${res.status}`);
   const j = await res.json();
@@ -211,22 +215,24 @@ function buildSpot(spot, r) {
   const now = nowHourStr();
   const sun = {};
   r.daily.time.forEach((d, i) => {
-    const rise = r.daily[`sunrise_${MODELS[0]}`]?.[i] ?? r.daily[`sunrise_${MODELS[1]}`]?.[i];
-    const set = r.daily[`sunset_${MODELS[0]}`]?.[i] ?? r.daily[`sunset_${MODELS[1]}`]?.[i];
+    const pick = k => { for (const m of ALL_MODELS) { const v = r.daily[`${k}_${m}`]?.[i]; if (v != null) return v; } };
+    const rise = pick('sunrise'), set = pick('sunset');
     sun[d] = { rise, set };
   });
   return h.time.map((t, i) => {
     const date = t.slice(0, 10);
-    const models = [];
-    for (const m of MODELS) {
+    const read = m => {
       const speed = h[`wind_speed_10m_${m}`]?.[i], dir = h[`wind_direction_10m_${m}`]?.[i], gust = h[`wind_gusts_10m_${m}`]?.[i];
-      if (speed != null && dir != null && gust != null) models.push({ speed, dir, gust });
-    }
+      return speed != null && dir != null && gust != null ? { speed, dir, gust } : null;
+    };
+    let models = MODELS.map(read).filter(Boolean);
+    let long = false;
+    if (!models.length) { models = [read(LONG_MODEL)].filter(Boolean); long = models.length > 0; }
     const month = Number(t.slice(5, 7));
     const mid = t.slice(0, 14) + '30';
     const s = sun[date];
     const daylight = !!s && mid >= s.rise && mid <= s.set;
-    return { t, date, hour: t.slice(11, 13), daylight, past: t < now, data: Scoring.combineHour(models, spot, month, ideal()) };
+    return { t, date, hour: t.slice(11, 13), daylight, past: t < now, long, data: Scoring.combineHour(models, spot, month, ideal()) };
   });
 }
 
@@ -254,7 +260,8 @@ function analyse(spot, allHours, date) {
     out.gustMax = Math.max(...inWin.map(d => d.gust));
     out.dir = Scoring.circularMean(inWin.map(d => d.dir));
     out.disagree = inWin.some(d => d.disagree);
-    out.singleModel = inWin.some(d => d.modelCount < 2);
+    out.long = hours.slice(win.start, win.end + 1).some(x => x.long);
+    out.singleModel = !out.long && inWin.some(d => d.modelCount < 2);
     out.kite = kiteRange(inWin);
   }
   const peak = Math.max(0, ...hours.filter(x => x.data).map(x => x.data.score));
@@ -304,7 +311,8 @@ function renderCard(a) {
       `${a.kite ? ` · kite <strong>${a.kite}</strong>` : ''}</div>`;
   }
   const tags = [];
-  if (win && a.disagree) tags.push('Models disagree');
+  if (win && a.long) tags.push('Long range (ECMWF) – less certain');
+  else if (win && a.disagree) tags.push('Models disagree');
   else if (win && a.singleModel) tags.push('Only one model has data');
 
   const strip = a.hours.map((x, i) => {
@@ -343,7 +351,7 @@ function render() {
   const rank = a => (a.closed ? -2 : a.win ? a.win.rating : a.peak / 100 - 1);
   analyses.sort((a, b) => rank(b) - rank(a));
   $('list').innerHTML = analyses.map(renderCard).join('');
-  $('updated').textContent = `Updated ${new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date())} · HARMONIE + ICON-D2`;
+  $('updated').textContent = `Updated ${new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date())} · HARMONIE + ICON-D2 + ECMWF`;
 }
 
 async function load() {
@@ -380,9 +388,9 @@ for (const id of ['idealLo', 'idealHi']) {
 $('skill').addEventListener('change', e => { state.profile.skill = e.target.value; saveProfile(); render(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && state.raw) load(); });
 
-// Deep links: ?day=0..2 selects a tab, ?open=all expands every card.
+// Deep links: ?day=0..6 selects a tab, ?open=all expands every card.
 const params = new URLSearchParams(location.search);
-state.day = Math.min(2, Math.max(0, Number(params.get('day')) || 0));
+state.day = Math.min(DAYS - 1, Math.max(0, Number(params.get('day')) || 0));
 const openAll = params.get('open') === 'all';
 
 loadProfile();
